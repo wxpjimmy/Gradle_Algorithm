@@ -65,17 +65,45 @@ public class TestAnyTrie {
         cost = System.nanoTime() - start;
         System.out.println("Build tree cost: " + cost + ", tree size: " + at.getSize());
 
+        Set<Integer> fianlRes = new HashSet<Integer>();
         Set<String> result = at.findKeywords("2014");
-        print(result);
+        if(result != null){
+            for(String key: result){
+                fianlRes.addAll(keyToValues.get(key));
+            }
+        }
+        //print(result);
+        printInt(fianlRes);
 
+        fianlRes.clear();
         Set<String> upload = at.findKeywords("upload");
-        print(upload);
+        if(upload != null){
+            for(String key: upload){
+                fianlRes.addAll(keyToValues.get(key));
+            }
+        }
+        //print(result);
+        printInt(fianlRes);
 
+        fianlRes.clear();
         Set<String> s1 = at.findKeywords("年会");
-        print(s1);
+        if(s1 != null){
+            for(String key: s1){
+                fianlRes.addAll(keyToValues.get(key));
+            }
+        }
+        //print(result);
+        printInt(fianlRes);
 
+        fianlRes.clear();
         Set<String> s2 = at.findKeywords("iv");
-        print(s2);
+        if(s2 != null){
+            for(String key: s2){
+                fianlRes.addAll(keyToValues.get(key));
+            }
+        }
+       // print(result);
+        printInt(fianlRes);
     }
 
     public static void print(Set<String> set){
@@ -85,6 +113,19 @@ public class TestAnyTrie {
         }
         StringBuilder sb = new StringBuilder();
         for(String s:set){
+            sb.append(s).append(",");
+        }
+        System.out.println(sb.toString());
+    }
+
+    public static void printInt(Set<Integer> set){
+        if(set == null){
+            System.out.println("No result!");
+            return;
+        }
+        System.out.println(set.size());
+        StringBuilder sb = new StringBuilder();
+        for(Integer s:set){
             sb.append(s).append(",");
         }
         System.out.println(sb.toString());

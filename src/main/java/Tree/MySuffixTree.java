@@ -7,9 +7,14 @@ import java.util.*;
  */
 public class MySuffixTree {
 
-    private List<StringBuilder> lists = new ArrayList<StringBuilder>();
+   // private List<StringBuilder> lists = new ArrayList<StringBuilder>();
+   private Map<StringBuilder, Integer> lists = new HashMap<StringBuilder, Integer>();
+
+    private Map<String, StringBuilder> patternTpSB = new HashMap<String, StringBuilder>();
+
+    private Map<String, TreeNode> sbToLastNode = new HashMap<String, TreeNode>();
     private TreeNode root = new TreeNode();
-    private Character empty = '.';
+    private char empty = '.';
 
     public MySuffixTree() {
         root.children = new HashMap<Character, TreeNode>();
@@ -23,12 +28,14 @@ public class MySuffixTree {
         public Map<Character, TreeNode> children;
         public TreeNode link;
         public Set<String> sameSuffix;
+        public TreeNode parent;
 
         public Set<StringBuilder> sameSuffixBuilder;
         public TreeNode() {
             this.start = -1;
             this.end = -1;
             len = 0;
+
         }
 
         /*public TreeNode(StringBuilder sb, int start, int end, int len){
@@ -38,11 +45,12 @@ public class MySuffixTree {
             this.len=len;
         }*/
 
-        public TreeNode(StringBuilder sb, int start, int end) {
+        public TreeNode(StringBuilder sb, int start, int end, TreeNode parent) {
             this.sb = sb;
             this.start = start;
             this.end = end;
             this.len = end - start + 1;
+            this.parent = parent;
         }
 
         public String getString() {
@@ -90,7 +98,7 @@ public class MySuffixTree {
 
     private class State {
         TreeNode active;
-        Character value = empty;
+        char value = empty;
         int activeLen = 0;
     }
 
@@ -133,7 +141,7 @@ public class MySuffixTree {
             return null;
         int len = pattern.length();
         int matched = 0;
-        Character first = pattern.charAt(0);
+        char first = pattern.charAt(0);
         TreeNode tn = root.children.get(first);
 
         while (tn != null && tn.len < (len - matched)) {
@@ -162,7 +170,24 @@ public class MySuffixTree {
         }
     }
 
-    public void buildSuffixTree(String value) {
+    public Set<Integer> getMatchResult(String pattern){
+        Set<StringBuilder> sbs = getMatchedSB(pattern);
+        Set<Integer> result = new HashSet<Integer>();
+        if(sbs != null){
+            for(StringBuilder sb:sbs){
+                result.add(lists.get(sb));
+            }
+        }
+        return result;
+    }
+
+    public void buildSuffixTree(String value, int id){
+        StringBuilder sb = buildSuffixTree(value + "^");
+        lists.put(sb, id);
+        patternTpSB.put(value, sb);
+    }
+
+    public StringBuilder buildSuffixTree(String value) {
         StringBuilder sb = new StringBuilder();
         int len = value.length();
         List<TreeNode> leaves = new LinkedList<TreeNode>();
@@ -171,7 +196,7 @@ public class MySuffixTree {
         state.active = root;
         int remaining = 1;
         for (int i = 0; i < len; i++) {
-            Character wd = value.charAt(i);
+            char wd = value.charAt(i);
             for (TreeNode leaf : leaves) {
                 if (leaf.sb == sb) {
                     leaf.end++;
@@ -183,12 +208,12 @@ public class MySuffixTree {
 
             //add new
             TreeNode tn;
-            Character cat;
+            char cat;
             if (state.value == empty) {
                 if (state.active == root) {
                     tn = state.active.children.get(wd);
                     if (tn == null) {
-                        tn = new TreeNode(sb, i, i);
+                        tn = new TreeNode(sb, i, i, state.active);
                         state.active.children.put(wd, tn);
                         leaves.add(tn);
                     } else {
@@ -212,9 +237,17 @@ public class MySuffixTree {
                 if (cat == wd) {
                     state.activeLen++;
                     if (tn.len == state.activeLen) {
+                        if(sb != state.active.sb){
+                            if(state.active.sameSuffixBuilder==null)
+                                state.active.sameSuffixBuilder = new HashSet<StringBuilder>();
+                            state.active.sameSuffixBuilder.add(sb);
+                        }
                         state.active = tn;
                         state.value = empty;
                         state.activeLen = 0;
+
+
+
                     }
                     remaining++;
                     //System.out.println("Add 2 Remaining: " + remaining + ", Char: " + cat);
@@ -242,7 +275,7 @@ public class MySuffixTree {
                             break;
                         }
                     }
-                    TreeNode txn = new TreeNode(sb, i, i);
+                    TreeNode txn = new TreeNode(sb, i, i, state.active);
                     if (state.active.children == null) {
                         leaves.remove(state.active);
                         state.active.children = new HashMap<Character, TreeNode>();
@@ -273,6 +306,11 @@ public class MySuffixTree {
                             TreeNode nxt = state.active.children.get(state.value);
                             if (nxt != null) {
                                 if (nxt.len == state.activeLen) {
+                                    if(sb != state.active.sb){
+                                        if(state.active.sameSuffixBuilder==null)
+                                            state.active.sameSuffixBuilder = new HashSet<StringBuilder>();
+                                        state.active.sameSuffixBuilder.add(sb);
+                                    }
                                     state.active = nxt;
                                     state.value = empty;
                                     state.activeLen = 0;
@@ -292,6 +330,11 @@ public class MySuffixTree {
                           //  System.out.println("Done process with: " + wd);
 
                             if(tn.len == state.activeLen){
+                                if(sb != state.active.sb){
+                                    if(state.active.sameSuffixBuilder==null)
+                                        state.active.sameSuffixBuilder = new HashSet<StringBuilder>();
+                                    state.active.sameSuffixBuilder.add(sb);
+                                }
                                 state.active = tn;
                                 state.value = empty;
                                 state.activeLen = 0;
@@ -300,12 +343,13 @@ public class MySuffixTree {
                         }
 
                         if (tn.end - tn.start + 1 > state.activeLen) {//do split
-                            TreeNode internal = new TreeNode(tn.sb, tn.start, tn.start + state.activeLen - 1);
+                            TreeNode internal = new TreeNode(tn.sb, tn.start, tn.start + state.activeLen - 1, tn.parent);
                             state.active.children.put(state.value, internal);
                             internal.children = new HashMap<Character, TreeNode>();
                             tn.start = internal.end + 1;
                            // System.out.println("Split at: [" + (internal.sb == null ? "" : internal.sb.toString()) + "]" + internal.end);
                             tn.len = tn.end - tn.start + 1;
+                            tn.parent = internal;
                             internal.children.put(cat, tn);
                             tn = internal;
 
@@ -316,7 +360,7 @@ public class MySuffixTree {
                                 tn.children = new HashMap<Character, TreeNode>();
                             }
                         }
-                        TreeNode ct = new TreeNode(sb, i, i);
+                        TreeNode ct = new TreeNode(sb, i, i, tn);
                         tn.children.put(wd, ct);
                         remaining--;
                         //System.out.println("Split Remaining: " + remaining);
@@ -351,10 +395,14 @@ public class MySuffixTree {
                 if (tn != null) {
                     while (tn.len < state.activeLen) {
                         int count = state.activeLen - tn.len;
-                        Character ca = null;
-                        ca = sb.charAt(sb.length() - count-1);
+                        char ca  = sb.charAt(sb.length() - count-1);
                         TreeNode next = tn.children.get(ca);
                         if (next != null) {
+                            if(sb != state.active.sb){
+                                if(state.active.sameSuffixBuilder==null)
+                                    state.active.sameSuffixBuilder = new HashSet<StringBuilder>();
+                                state.active.sameSuffixBuilder.add(sb);
+                            }
                             state.active = tn;
                             state.value = ca;
                             state.activeLen = count;
@@ -365,6 +413,11 @@ public class MySuffixTree {
                     }
 
                     if (tn.len == state.activeLen) {
+                        if(sb != state.active.sb){
+                            if(state.active.sameSuffixBuilder==null)
+                                state.active.sameSuffixBuilder = new HashSet<StringBuilder>();
+                            state.active.sameSuffixBuilder.add(sb);
+                        }
                         state.active = tn;
                         state.value = empty;
                         state.activeLen = 0;
@@ -377,7 +430,7 @@ public class MySuffixTree {
                 tn = state.active.children.get(state.value);
                 if (tn == null) {
                    // System.out.println("Char: " + wd + " not exist! create new node");
-                    tn = new TreeNode(sb, i, i);
+                    tn = new TreeNode(sb, i, i, state.active);
                     state.active.children.put(wd, tn);
                     leaves.add(tn);
                     state.value = empty;
@@ -398,23 +451,64 @@ public class MySuffixTree {
         // processRemaining(sb,state, remaining, len-1, leaves);
         //process remaining when handling more than 1 text
         if (remaining > 2) {
-            //processRemaining(sb, state, remaining, sb.length()-1, leaves);
             TreeNode node;
             if (state.value != empty)
                 node = state.active.children.get(state.value);
             else {
                 node = state.active;
             }
-           /* if (node.sameSuffix == null) {
-                node.sameSuffix = new HashSet<String>();
+            if(sb != node.sb){
+                if(state.active.sameSuffixBuilder==null)
+                    state.active.sameSuffixBuilder = new HashSet<StringBuilder>();
+                state.active.sameSuffixBuilder.add(sb);
             }
-            node.sameSuffix.add(value);*/
+            //processRemaining(sb, state, remaining, sb.length()-1, leaves);
+           /* TreeNode node;
+            if (state.value != empty)
+                node = state.active.children.get(state.value);
+            else {
+                node = state.active;
+            }
+
+            if(remaining != state.activeLen + 1 && remaining != (state.active.len + state.activeLen + 2)){
+                System.out.println("Met Not only 1 left: " + sb + "(Remaining: " + remaining + ", state.len: " + state.active.len + ", state.activelen: " + state.activeLen + ")");
+            }
+
             if(node.sameSuffixBuilder == null){
-                node.sameSuffixBuilder = new HashSet<StringBuilder>();
+                TreeNode tn = node;
+                while(tn != root && sbToLastNode.containsKey(tn.getString())){
+                    TreeNode next = sbToLastNode.get(node.getString());
+                    if(tn != next){
+                        tn = next;
+                        if(node.sameSuffixBuilder != null)
+                            break;
+                    }else
+                        break;
+                }
+
+                if(tn.sameSuffixBuilder == null){
+                    //not found, create and update old one
+                    node.sameSuffixBuilder = new HashSet<StringBuilder>();
+                    sbToLastNode.put(node.getString(), node);
+                }else{
+                    node = tn;
+                }
             }
             node.sameSuffixBuilder.add(sb);
+            sbToLastNode.put(node.getString(), node);
+           // System.out.println("link add: " + value);
+        }else{
+            TreeNode node;
+            if (state.value != empty)
+                node = state.active.children.get(state.value);
+            else {
+                node = state.active;
+            }
+            sbToLastNode.put(node.getString(), node);
+           // System.out.println("Direct add: " + value);*/
         }
-        lists.add(sb);
+       // lists.add(sb);
+        return sb;
     }
 
     public void print() {
